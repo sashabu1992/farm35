@@ -1,3 +1,5 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -122,9 +124,15 @@
     </style>
 </head>
 <body>
+<style>
+    .imglogo{
+        max-width:100%
+    }
+</style>
+
     <div class="login-container">
         <div class="server-error" id="serverError"></div>
-        
+         <img class="imglogo" src="{% static 'img/Logo_1.png' %}" alt="">
         <div class="login-header">
             <h2>Вход в систему</h2>
         </div>
