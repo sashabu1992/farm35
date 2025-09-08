@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Статистика посещаемости</h2>
+    <span class="badge bg-primary fs-6">Период: {{ start_date|date:"d.m.Y" }} - {{ end_date|date:"d.m.Y" }}</span>
+</div>
+
+<!-- Фильтр по датам -->
+<div class="card mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Фильтр по датам</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3" id="dateFilterForm">
+            <div class="col-md-3">
+                <label class="form-label">Начальная дата:</label>
+                <input type="date" name="start_date" class="form-control" 
+                       value="{{ form.start_date.value|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Конечная дата:</label>
+                <input type="date" name="end_date" class="form-control" 
+                       value="{{ form.end_date.value|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">Применить фильтр</button>
+            </div>
+        </form>
+        
+        <!-- Быстрые кнопки -->
+        <div class="mt-3">
+            <small class="text-muted">Быстрый выбор:</small>
+            <div class="btn-group btn-group-sm mt-1">
+                <a href="?current_day=1" class="btn btn-outline-secondary">Сегодня</a>
+                <a href="?current_week=1" class="btn btn-outline-secondary">Текущая неделя</a>
+                <a href="?current_month=1" class="btn btn-outline-secondary">Текущий месяц</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="statistics-content">
+    <!-- Общая статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_employees_count }}</h5>
+                    <p class="card-text">Всего сотрудников</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_working_days }}</h5>
+                    <p class="card-text">Рабочих дней</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_stats.full|default:0 }}</h5>
+                    <p class="card-text">Полных дней</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_stats.sick|default:0 }}</h5>
+                    <p class="card-text">Больничных</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статистика по аптекам -->
+    {% for pharmacy_stat in pharmacy_stats %}
+    <div class="card mb-4">
+        <div class="card-header {% if pharmacy_stat.is_main %}bg-warning text-dark{% else %}bg-info text-white{% endif %}">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-clinic-medical me-2"></i>
+                {{ pharmacy_stat.pharmacy.name }}
+                {% if pharmacy_stat.is_main %}
+                <span class="badge bg-dark ms-2">
+                    <i class="fas fa-crown me-1"></i>Главная аптека
+                </span>
+                {% else %}
+                <span class="badge bg-light text-dark ms-2">
+                    <i class="fas fa-code-branch me-1"></i>Филиал
+                </span>
+                {% endif %}
+                <span class="badge bg-secondary ms-auto">{{ pharmacy_stat.employees_count }} сотрудников</span>
+            </h5>
+            <small class="d-block mt-1">
+                <i class="fas fa-map-marker-alt me-1"></i>{{ pharmacy_stat.pharmacy.address }}
+                {% if pharmacy_stat.pharmacy.phone %}
+                • <i class="fas fa-phone me-1"></i>{{ pharmacy_stat.pharmacy.phone }}
+                {% endif %}
+            </small>
+        </div>
+        
+        <div class="card-body">
+            <!-- Статистика по аптеке -->
+            <div class="row mb-3">
+                <div class="col-md-2">
+                    <div class="card text-center bg-light">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">{{ pharmacy_stat.total_stats.full|default:0 }}</h6>
+                            <small class="text-muted">Полных дней</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-center bg-light">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">{{ pharmacy_stat.total_stats.half|default:0 }}</h6>
+                            <small class="text-muted">Пол дня</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-center bg-light">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">{{ pharmacy_stat.total_stats.vacation|default:0 }}</h6>
+                            <small class="text-muted">Отпуск</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card text-center bg-light">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">{{ pharmacy_stat.total_stats.sick|default:0 }}</h6>
+                            <small class="text-muted">Больничных</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center bg-light">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-0">
+                                {% with total=pharmacy_stat.total_stats.full|add:pharmacy_stat.total_stats.half|add:pharmacy_stat.total_stats.vacation|add:pharmacy_stat.total_stats.sick %}
+                                    {{ total }}
+                                {% endwith %}
+                            </h6>
+                            <small class="text-muted">Всего записей</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Детальная статистика по сотрудникам аптеки -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Сотрудник</th>
+                            <th class="text-center">Рабочих дней</th>
+                            <th class="text-center">Полный день</th>
+                            <th class="text-center">Пол дня</th>
+                            <th class="text-center">Отпуск</th>
+                            <th class="text-center">Больничный</th>
+                            <th class="text-center">Пропущено</th>
+                            <th class="text-center">% присутствия</th>
+                            <th class="text-center">Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in pharmacy_stat.employee_stats %}
+                        <tr>
+                            <td>
+                                <strong>{{ stat.employee.full_name }}</strong>
+                                {% if stat.employee.is_manager %}
+                                <span class="badge bg-warning text-dark ms-2">
+                                    <i class="fas fa-crown me-1"></i>Заведующий
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{{ stat.total_working_days }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ stat.status_counts.full|default:0 }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-warning text-dark">{{ stat.status_counts.half|default:0 }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info">{{ stat.status_counts.vacation|default:0 }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger">{{ stat.status_counts.sick|default:0 }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ stat.missing_days }}</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar 
+                                        {% if stat.attendance_percentage >= 90 %}bg-success
+                                        {% elif stat.attendance_percentage >= 70 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                        style="width: {{ stat.attendance_percentage }}%">
+                                        {{ stat.attendance_percentage|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                {% if stat.attendance_percentage >= 90 %}
+                                    <span class="badge bg-success">Отлично</span>
+                                {% elif stat.attendance_percentage >= 70 %}
+                                    <span class="badge bg-warning text-dark">Удовлетворительно</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Плохо</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                Нет данных для отображения
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Общая статистика -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Общая статистика по статусам</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>Полный день:</td>
+                            <td><span class="badge bg-success">{{ total_stats.full|default:0 }}</span></td>
+                            <td>{{ total_stats.full|default:0 }} записей</td>
+                        </tr>
+                        <tr>
+                            <td>Пол дня:</td>
+                            <td><span class="badge bg-warning text-dark">{{ total_stats.half|default:0 }}</span></td>
+                            <td>{{ total_stats.half|default:0 }} записей</td>
+                        </tr>
+                        <tr>
+                            <td>Отпуск:</td>
+                            <td><span class="badge bg-info">{{ total_stats.vacation|default:0 }}</span></td>
+                            <td>{{ total_stats.vacation|default:0 }} записей</td>
+                        </tr>
+                        <tr>
+                            <td>Больничный:</td>
+                            <td><span class="badge bg-danger">{{ total_stats.sick|default:0 }}</span></td>
+                            <td>{{ total_stats.sick|default:0 }} записей</td>
+                        </tr>
+                        <tr class="table-secondary">
+                            <td><strong>Всего:</strong></td>
+                            <td><strong>
+                                {% with total=total_stats.full|add:total_stats.half|add:total_stats.vacation|add:total_stats.sick %}
+                                    {{ total }}
+                                {% endwith %}
+                            </strong></td>
+                            <td><strong>записей</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Информация</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><small>Период: <strong>{{ start_date|date:"d.m.Y" }} - {{ end_date|date:"d.m.Y" }}</strong></small></p>
+                    <p class="mb-2"><small>Рабочих дней: <strong>{{ total_working_days }}</strong></small></p>
+                    <p class="mb-2"><small>Количество аптек: <strong>{{ pharmacy_stats|length }}</strong></small></p>
+                    <p class="mb-2"><small>Количество сотрудников: <strong>{{ total_employees_count }}</strong></small></p>
+                    <p class="mb-0"><small>Дата формирования: <strong>{% now "d.m.Y H:i" %}</strong></small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Индикатор загрузки -->
+<div id="loading" class="text-center" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Загрузка...</span>
+    </div>
+    <p class="mt-2">Загрузка данных...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Отключаем стандартное поведение ссылок
+    $('a[href*="current_day"], a[href*="current_week"], a[href*="current_month"]').click(function(e) {
+        e.preventDefault();
+        var href = $(this).attr('href');
+        
+        if (href.includes('current_day')) {
+            loadStatistics('day');
+        } else if (href.includes('current_week')) {
+            loadStatistics('week');
+        } else if (href.includes('current_month')) {
+            loadStatistics('month');
+        }
+    });
+
+    // Обработка формы через AJAX
+    $('#dateFilterForm').submit(function(e) {
+        e.preventDefault();
+        loadStatistics('custom');
+    });
+
+    function loadStatistics(period) {
+        $('#loading').show();
+        $('#statistics-content').hide();
+
+        var url = window.location.pathname;
+        var data = {};
+
+        if (period === 'custom') {
+            var startDate = $('input[name="start_date"]').val();
+            var endDate = $('input[name="end_date"]').val();
+            if (startDate && endDate) {
+                data = {
+                    'start_date': startDate,
+                    'end_date': endDate
+                };
+            } else {
+                alert('Пожалуйста, выберите обе даты');
+                $('#loading').hide();
+                $('#statistics-content').show();
+                return;
+            }
+        } else {
+            // Правильные имена параметров
+            if (period === 'day') {
+                data['current_day'] = '1';
+            } else if (period === 'week') {
+                data['current_week'] = '1';
+            } else if (period === 'month') {
+                data['current_month'] = '1';
+            }
+        }
+
+        $.ajax({
+            url: url,
+            type: 'GET',
+            data: data,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#statistics-content').html(response.html);
+                    $('.badge.bg-primary.fs-6').text('Период: ' + response.period_text);
+                    $('#statistics-content').show();
+                } else {
+                    location.reload();
+                }
+                $('#loading').hide();
+            },
+            error: function() {
+                alert('Ошибка загрузки данных');
+                $('#loading').hide();
+                $('#statistics-content').show();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

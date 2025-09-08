@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Отчет по табелям посещаемости
+                    </h4>
+                    <div id="report-header-info">
+                        {% if form.cleaned_data.pharmacy %}
+                        <small class="d-block mt-1">
+                            Аптека: {{ form.cleaned_data.pharmacy.name }}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Форма выбора -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <form id="timesheet-form" class="row g-3 align-items-end">
+                                {% csrf_token %}
+                                
+                                <!-- Первая строка: Аптека -->
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">Аптека:</label>
+                                    {{ form.pharmacy }}
+                                </div>
+                                
+                                <!-- Вторая строка: Год, Месяц и Переключатель -->
+                                <div class="col-md-12">
+                                    <div class="row g-3 align-items-end">
+                                        <!-- Год и Месяц -->
+                                        <div class="col-md-4">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Год:</label>
+                                                    {{ form.year }}
+                                                </div>
+                                                <div class="col-md-6" id="month-field">
+                                                    <label class="form-label">Месяц:</label>
+                                                    {{ form.month }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Переключатель периода -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">Тип периода:</label>
+                                            <div class="d-flex gap-3 mt-2">
+                                                {% for radio in form.period_type %}
+                                                <div class="form-check">
+                                                    {{ radio.tag }}
+                                                    <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                                        {{ radio.choice_label }}
+                                                    </label>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Кнопка -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="submit" class="btn btn-primary w-100" id="submit-btn">
+                                                <i class="fas fa-search me-1"></i>Показать
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Контейнер для результатов -->
+                    <div id="timesheet-results">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-info-circle fa-3x mb-3"></i>
+                            <h5>Выберите аптеку и период для просмотра отчета</h5>
+                        </div>
+                    </div>
+
+                    <!-- Индикатор загрузки -->
+                    <div id="loading-indicator" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Загрузка данных...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Стили для индикатора загрузки */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Стили для результатов */
+#timesheet-results {
+    min-height: 200px;
+    transition: opacity 0.3s ease;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Стили для нерабочих дней */
+.non-working-day {
+    background-color: #495057 !important;
+    color: #fff !important;
+    border-color: #6c757d !important;
+}
+
+.avatar-placeholder {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pharmacy-section {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Улучшаем расположение элементов формы */
+.form-label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.d-flex.gap-3 {
+    gap: 1.5rem !important;
+}
+
+/* Стили для группировки года и месяца */
+.row.g-2 {
+    --bs-gutter-x: 0.5rem;
+}
+
+/* Узкие выпадающие списки для года и месяца */
+#id_year, #id_month {
+    min-width: 100px;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .row.g-2 {
+        flex-direction: column;
+    }
+    
+    .row.g-2 .col-md-6 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    
+    .d-flex.gap-3 {
+        flex-direction: column;
+        gap: 0.5rem !important;
+    }
+}
+
+/* Плавное скрытие месяца */
+#month-field {
+    transition: all 0.3s ease;
+}
+
+#month-field.hidden-field {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    padding: 0;
+    margin: 0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Функция для получения CSRF токена
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('timesheet-form');
+    const resultsContainer = document.getElementById('timesheet-results');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const submitBtn = document.getElementById('submit-btn');
+    const headerInfo = document.getElementById('report-header-info');
+    const monthField = document.getElementById('month-field');
+    const monthSelect = document.getElementById('id_month');
+    const monthLabel = monthField.querySelector('label');
+    const csrftoken = getCookie('csrftoken');
+
+    // Функция для скрытия/показа поля месяца
+    function toggleMonthField() {
+        const selectedPeriod = document.querySelector('input[name="period_type"]:checked');
+        if (selectedPeriod) {
+            if (selectedPeriod.value === 'month') {
+                monthField.classList.remove('hidden-field');
+                monthSelect.disabled = false;
+            } else {
+                monthField.classList.add('hidden-field');
+                monthSelect.disabled = true;
+            }
+        }
+    }
+
+    // Инициализация
+    toggleMonthField();
+    document.querySelectorAll('input[name="period_type"]').forEach(radio => {
+        radio.addEventListener('change', toggleMonthField);
+    });
+
+    // Обработчик отправки формы
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadTimesheetData();
+    });
+
+    // Функция для загрузки данных через AJAX
+    function loadTimesheetData() {
+        const formData = new FormData(form);
+        
+        // Показываем индикатор загрузки
+        loadingIndicator.style.display = 'block';
+        resultsContainer.style.opacity = '0.5';
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Загрузка...';
+
+        // AJAX запрос
+        fetch('{% url "leader_timesheet_report_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrftoken
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Обновляем заголовок
+                if (data.pharmacy_name) {
+                    headerInfo.innerHTML = `<small class="d-block mt-1">Аптека: ${data.pharmacy_name}</small>`;
+                } else {
+                    headerInfo.innerHTML = '';
+                }
+                
+                // Обновляем содержимое
+                resultsContainer.innerHTML = data.html;
+                resultsContainer.classList.add('fade-in');
+                
+                // Плавное появление
+                setTimeout(() => {
+                    resultsContainer.style.opacity = '1';
+                }, 100);
+            } else {
+                showError(data.error || 'Произошла ошибка при загрузке данных');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Ошибка сети или сервера');
+        })
+        .finally(() => {
+            // Скрываем индикатор загрузки
+            loadingIndicator.style.display = 'none';
+            resultsContainer.style.opacity = '1';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-search me-1"></i>Показать';
+        });
+    }
+
+    // Функция для показа ошибки
+    function showError(message) {
+        resultsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${message}
+            </div>
+        `;
+    }
+
+    // Загружаем данные при изменении селектов
+    document.getElementById('id_pharmacy').addEventListener('change', function() {
+        if (this.value) {
+            loadTimesheetData();
+        }
+    });
+
+    document.getElementById('id_year').addEventListener('change', loadTimesheetData);
+    document.getElementById('id_month').addEventListener('change', loadTimesheetData);
+    
+    // Автозагрузка при наличии данных в форме
+    {% if form.cleaned_data.pharmacy %}
+    setTimeout(loadTimesheetData, 100);
+    {% endif %}
+});
+</script>
+{% endblock %}

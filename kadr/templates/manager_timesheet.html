@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Табель посещаемости
+                    </h4>
+                    <small class="d-block mt-1">
+                        Рабочих дней: {{ working_days_set|length }} • Выходных: {{ non_working_days|length }}
+                    </small>
+                </div>
+                <div class="card-body">
+                    <!-- Форма выбора месяца и года -->
+                    <div class="row mb-4 align-items-center">
+                        <div class="col-md-8">
+                            <form method="post" class="row g-2 align-items-center">
+                                {% csrf_token %}
+                                <div class="col-auto">
+                                    <label class="form-label mb-0">Год:</label>
+                                </div>
+                                <div class="col-auto">
+                                    {{ form.year }}
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label mb-0">Месяц:</label>
+                                </div>
+                                <div class="col-auto">
+                                    {{ form.month }}
+                                </div>
+                                <div class="col-auto">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>Показать
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <h5 class="text-muted mb-0">
+                                {{ selected_month_name }} {{ selected_year }} года
+                            </h5>
+                            <small class="text-muted">
+                                {{ first_day|date:"d.m.Y" }} - {{ last_day|date:"d.m.Y" }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Табель по аптекам -->
+                    {% for pharmacy_data in timesheet_data %}
+                    <div class="pharmacy-section mb-5">
+                        <div class="pharmacy-header mb-3 p-3 {% if pharmacy_data.is_main %}bg-warning{% else %}bg-light{% endif %} rounded">
+                            <h5 class="mb-0 d-flex align-items-center">
+                                <i class="fas fa-clinic-medical me-2"></i>
+                                {{ pharmacy_data.pharmacy.name }}
+                                {% if pharmacy_data.is_main %}
+                                <span class="badge bg-dark ms-2">
+                                    <i class="fas fa-crown me-1"></i>Главная аптека
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-2">
+                                    <i class="fas fa-code-branch me-1"></i>Филиал
+                                </span>
+                                {% endif %}
+                            </h5>
+                            <small class="text-muted">
+                                <i class="fas fa-map-marker-alt me-1"></i>{{ pharmacy_data.pharmacy.address }}
+                                {% if pharmacy_data.pharmacy.phone %}
+                                • <i class="fas fa-phone me-1"></i>{{ pharmacy_data.pharmacy.phone }}
+                                {% endif %}
+                                • <i class="fas fa-users me-1"></i>{{ pharmacy_data.employees|length }} сотрудников
+                            </small>
+                        </div>
+
+                        {% if pharmacy_data.employees %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped table-sm">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th rowspan="2" style="min-width: 180px;">Сотрудник</th>
+                                        <th colspan="{{ days_in_month|length }}" class="text-center">Числа месяца</th>
+                                        <th rowspan="2" style="width: 70px;" class="text-center">Рабочих</th>
+                                        <th rowspan="2" style="width: 70px;" class="text-center">Заполнено</th>
+                                        <th rowspan="2" style="width: 70px;" class="text-center">%</th>
+                                    </tr>
+                                    <tr>
+                                        {% for day in days_in_month %}
+                                        {% if day in working_days_set %}
+                                        <th class="text-center" 
+                                            style="width: 25px; font-size: 11px;"
+                                            title="Рабочий день">
+                                            {{ day }}
+                                        </th>
+                                        {% else %}
+                                        <th class="text-center non-working-day" 
+                                            style="width: 25px; font-size: 11px;"
+                                            title="Выходной">
+                                            {{ day }}
+                                        </th>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for employee_data in pharmacy_data.employees %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-placeholder me-2">
+                                                    <i class="fas fa-user-circle text-secondary"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold" style="font-size: 13px;">{{ employee_data.employee.full_name }}</div>
+                                                    {% if employee_data.employee.is_manager %}
+                                                    <small class="badge bg-warning text-dark">
+                                                        <i class="fas fa-crown me-1"></i>Заведующий
+                                                    </small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        
+                                        {% for day_status in employee_data.daily_status %}
+                                        <td class="text-center {% if not day_status.is_working %}non-working-day{% endif %}">
+                                            {% if day_status.is_working %}
+                                                {% if day_status.status == 'full' %}
+                                                    <span class="badge bg-success" title="Полный день">✓</span>
+                                                {% elif day_status.status == 'half' %}
+                                                    <span class="badge bg-warning text-dark" title="Полдня">½</span>
+                                                {% elif day_status.status == 'vacation' %}
+                                                    <span class="badge bg-info" title="Отпуск">О</span>
+                                                {% elif day_status.status == 'sick' %}
+                                                    <span class="badge bg-danger" title="Больничный">Б</span>
+                                                {% else %}
+                                                    <span class="text-muted" title="Не указано">-</span>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if day_status.is_weekend %}
+                                                    <span class="badge bg-secondary" title="Выходной">В</span>
+                                                {% else %}
+                                                    <span class="badge bg-info" title="Праздник">П</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        {% endfor %}
+                                        
+                                        <td class="text-center fw-bold" style="font-size: 12px;">
+                                            {{ employee_data.total_working_days }}
+                                        </td>
+                                        <td class="text-center fw-bold" style="font-size: 12px;">
+                                            {{ employee_data.filled_working_days }}
+                                        </td>
+                                        <td class="text-center fw-bold" style="font-size: 12px;">
+                                            {{ employee_data.attendance_percentage|floatformat:0 }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Нет сотрудников в этой аптеке
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <!-- Легенда -->
+                    <div class="card mt-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Легенда табеля</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-success me-2">✓</span>
+                                    <small>Полный день</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-warning text-dark me-2">½</span>
+                                    <small>Полдня</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-info me-2">О</span>
+                                    <small>Отпуск</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-danger me-2">Б</span>
+                                    <small>Больничный</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-secondary me-2">В</span>
+                                    <small>Выходной</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="badge bg-info me-2">П</span>
+                                    <small>Праздник</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="text-muted me-2">-</span>
+                                    <small>Не указано</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <span class="non-working-day-demo me-2">&nbsp;&nbsp;&nbsp;</span>
+                                    <small>Нерабочий день</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.pharmacy-section {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: #fff;
+}
+
+.pharmacy-section:not(:last-child) {
+    margin-bottom: 2rem;
+}
+
+.avatar-placeholder {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.table th {
+    font-size: 0.75rem;
+    padding: 0.25rem;
+    text-align: center;
+}
+
+.table td {
+    padding: 0.25rem;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.3rem;
+}
+
+/* Стили для нерабочих дней */
+.non-working-day {
+    background-color: #495057 !important; /* Темно-серый, как в table-dark */
+    color: #fff !important;
+    border-color: #6c757d !important;
+}
+
+/* Демо-квадратик для легенды */
+.non-working-day-demo {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-color: #495057;
+    border: 1px solid #6c757d;
+    vertical-align: middle;
+}
+
+/* Стили для главной аптеки */
+.pharmacy-section:first-child {
+    border-left: 4px solid #ffc107;
+    background-color: #fffaf0;
+}
+
+.pharmacy-section:not(:first-child) {
+    border-left: 4px solid #6c757d;
+    background-color: #f8f9fa;
+}
+
+/* Стили для формы */
+select.form-select {
+    width: auto;
+    display: inline-block;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.15rem;
+    }
+    
+    .pharmacy-header h5 {
+        font-size: 1.1rem;
+    }
+}
+</style>
+{% endblock %}

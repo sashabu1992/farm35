@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-check me-2"></i>
+                        Учет посещаемости на {{ today|date:"d.m.Y" }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% for pharmacy, employees in pharmacy_groups %}
+                    <div class="pharmacy-group mb-4">
+                        <div class="pharmacy-header mb-3">
+                            <h5 class="d-flex align-items-center">
+                                <i class="fas fa-clinic-medical me-2 {% if pharmacy == main_pharmacy %}text-warning{% else %}text-secondary{% endif %}"></i>
+                                {{ pharmacy.name }}
+                                {% if pharmacy == main_pharmacy %}
+                                <span class="badge bg-warning ms-2">
+                                    <i class="fas fa-crown me-1"></i>Главная аптека
+                                </span>
+                                {% else %}
+                                <span class="badge bg-info ms-2">
+                                    <i class="fas fa-code-branch me-1"></i>Филиал
+                                </span>
+                                {% endif %}
+                            </h5>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-map-marker-alt me-1"></i>{{ pharmacy.address }}
+                                {% if pharmacy.phone %}
+                                • <i class="fas fa-phone me-1"></i>{{ pharmacy.phone }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 40%;">Сотрудник</th>
+                                        <th style="width: 40%;">Статус</th>
+                                        <th style="width: 20%;">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for employee, form, attendance in employees %}
+                                    <tr class="{% if employee.is_manager %}table-info{% endif %}" data-user-id="{{ employee.user.id }}">
+                                        <td class="align-middle">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-placeholder me-3">
+                                                    <i class="fas fa-user-circle fa-2x text-secondary"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="d-flex align-items-center">
+                                                        <strong>{{ employee.full_name }}</strong>
+                                                        {% if employee.is_manager %}
+                                                        <span class="badge bg-warning text-dark ms-2">
+                                                            <i class="fas fa-crown me-1"></i>Заведующий
+                                                        </span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <br>
+                                                    <small class="text-muted">{{ employee.pharmacy.name }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <div class="status-form" id="form-{{ employee.user.id }}">
+                                                <input type="hidden" name="user_id" value="{{ employee.user.id }}">
+                                                <input type="hidden" name="date" value="{{ today|date:'Y-m-d' }}">
+                                                <div class="input-group">
+                                                    <select class="form-select status-select" 
+                                                            data-user-id="{{ employee.user.id }}"
+                                                            {% if not attendance.status %}autofocus{% endif %}>
+                                                        <option value="">Выберите статус</option>
+                                                        <option value="full" {% if attendance.status == 'full' %}selected{% endif %}>Полный день</option>
+                                                        <option value="half" {% if attendance.status == 'half' %}selected{% endif %}>Полдня</option>
+                                                        <option value="vacation" {% if attendance.status == 'vacation' %}selected{% endif %}>Отпуск</option>
+                                                        <option value="sick" {% if attendance.status == 'sick' %}selected{% endif %}>Больничный</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="status-badge mt-2" id="status-badge-{{ employee.user.id }}">
+                                                {% if attendance.status %}
+                                                    {% with status=attendance.get_status_display %}
+                                                        {% if attendance.status == 'full' %}
+                                                            <span class="badge bg-success">{{ status }}</span>
+                                                        {% elif attendance.status == 'half' %}
+                                                            <span class="badge bg-warning text-dark">{{ status }}</span>
+                                                        {% elif attendance.status == 'vacation' %}
+                                                            <span class="badge bg-info">{{ status }}</span>
+                                                        {% elif attendance.status == 'sick' %}
+                                                            <span class="badge bg-danger">{{ status }}</span>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Не указано</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <button type="button" class="btn btn-outline-success btn-sm save-btn"
+                                                    data-user-id="{{ employee.user.id }}"
+                                                    {% if not attendance.status %}autofocus{% endif %}>
+                                                <i class="fas fa-save"></i> Сохранить
+                                            </button>
+                                            <div class="save-status mt-1" id="save-status-{{ employee.user.id }}"></div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        {% if not forloop.last %}
+                        <hr class="my-4">
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Выберите статус и нажмите "Сохранить"
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                Всего аптек: {{ pharmacy_groups|length }} • 
+                                Сотрудников: {% for pharmacy, employees in pharmacy_groups %}{{ employees|length }}{% if not forloop.last %} + {% endif %}{% endfor %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.pharmacy-header {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-select {
+    transition: all 0.3s ease;
+}
+
+.status-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.save-btn {
+    transition: all 0.2s ease;
+    min-width: 100px;
+}
+
+.save-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+
+.save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.save-status {
+    font-size: 0.8rem;
+    min-height: 20px;
+}
+
+.status-success {
+    color: #198754;
+}
+
+.status-error {
+    color: #dc3545;
+}
+
+.status-loading {
+    color: #0dcaf0;
+}
+
+/* Анимации */
+.fa-spinner {
+    animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.pharmacy-group {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: #fff;
+}
+
+.pharmacy-group:not(:last-child) {
+    margin-bottom: 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - initializing AJAX attendance manager');
+    
+    // CSRF токен для AJAX запросов
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    // Функция для форматирования даты в YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // Функция для сохранения статуса через AJAX
+    function saveAttendance(userId) {
+        const select = document.querySelector(`.status-select[data-user-id="${userId}"]`);
+        const saveBtn = document.querySelector(`.save-btn[data-user-id="${userId}"]`);
+        const statusDiv = document.getElementById(`save-status-${userId}`);
+        const badgeDiv = document.getElementById(`status-badge-${userId}`);
+        
+        if (!select || !select.value) {
+            showStatus(statusDiv, 'error', 'Выберите статус перед сохранением');
+            return;
+        }
+        
+        // Используем текущую дату вместо шаблонной переменной
+        const currentDate = new Date();
+        const formattedDate = formatDate(currentDate);
+        
+        const data = {
+            user_id: userId,
+            status: select.value,
+            date: formattedDate  // Теперь дата в правильном формате
+        };
+        
+        console.log('Sending data:', data); // Для отладки
+        
+        // Визуальная обратная связь
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+        saveBtn.disabled = true;
+        showStatus(statusDiv, 'loading', 'Сохранение...');
+        
+        // AJAX запрос
+        fetch('{% url "save_attendance_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data); // Для отладки
+            if (data.success) {
+                showStatus(statusDiv, 'success', 'Сохранено успешно!');
+                updateStatusBadge(badgeDiv, data.status, data.status_display);
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Готово';
+                
+                // Автоматическое скрытие сообщения через 2 секунды
+                setTimeout(() => {
+                    clearStatus(statusDiv);
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+                    saveBtn.disabled = false;
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Ошибка сохранения');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showStatus(statusDiv, 'error', 'Ошибка сохранения: ' + error.message);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+            saveBtn.disabled = false;
+            
+            // Автоматическое скрытие ошибки через 3 секунды
+            setTimeout(() => {
+                clearStatus(statusDiv);
+            }, 3000);
+        });
+    }
+    
+    // Функция для отображения статуса
+    function showStatus(element, type, message) {
+        if (!element) return;
+        
+        element.innerHTML = message;
+        element.className = 'save-status status-' + type;
+        element.style.display = 'block';
+    }
+    
+    // Функция для очистки статуса
+    function clearStatus(element) {
+        if (!element) return;
+        element.style.display = 'none';
+        element.innerHTML = '';
+    }
+    
+    // Функция для обновления бейджа статуса
+    function updateStatusBadge(badgeDiv, status, statusDisplay) {
+        if (!badgeDiv) return;
+        
+        let badgeClass = 'badge bg-secondary';
+        let icon = '';
+        
+        switch(status) {
+            case 'full':
+                badgeClass = 'badge bg-success';
+                icon = '<i class="fas fa-check-circle me-1"></i>';
+                break;
+            case 'half':
+                badgeClass = 'badge bg-warning text-dark';
+                icon = '<i class="fas fa-clock me-1"></i>';
+                break;
+            case 'vacation':
+                badgeClass = 'badge bg-info';
+                icon = '<i class="fas fa-umbrella-beach me-1"></i>';
+                break;
+            case 'sick':
+                badgeClass = 'badge bg-danger';
+                icon = '<i class="fas fa-first-aid me-1"></i>';
+                break;
+        }
+        
+        badgeDiv.innerHTML = `<span class="${badgeClass}">${icon}${statusDisplay}</span>`;
+    }
+    
+    // Обработчики для кнопок сохранения
+    function setupSaveButtons() {
+        document.querySelectorAll('.save-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                saveAttendance(userId);
+            });
+        });
+    }
+    
+    // Обработчики для выпадающих списков (сохранение при изменении)
+    function setupSelectChangeHandlers() {
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const statusDiv = document.getElementById(`save-status-${this.dataset.userId}`);
+                clearStatus(statusDiv);
+            });
+        });
+    }
+    
+    // Автофокус на первое пустое поле
+    function focusFirstEmptyField() {
+        const emptySelect = document.querySelector('.status-select:not([value])');
+        if (emptySelect) {
+            emptySelect.focus();
+        }
+    }
+    
+    // Запуск инициализации
+    setupSaveButtons();
+    setupSelectChangeHandlers();
+    focusFirstEmptyField();
+    
+    console.log('AJAX attendance manager initialized');
+});
+</script>
+{% endblock %}

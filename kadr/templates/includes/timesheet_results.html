@@ -1,0 +1,192 @@
+{% if timesheet_data %}
+    {% for pharmacy_data in timesheet_data %}
+    <div class="pharmacy-section mb-5">
+        <div class="pharmacy-header mb-3 p-3 {% if pharmacy_data.is_main %}bg-warning{% else %}bg-light{% endif %} rounded">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-clinic-medical me-2"></i>
+                {{ pharmacy_data.pharmacy.name }}
+                {% if pharmacy_data.is_main %}
+                <span class="badge bg-dark ms-2">Главная аптека</span>
+                {% else %}
+                <span class="badge bg-secondary ms-2">Филиал</span>
+                {% endif %}
+                <span class="badge bg-info ms-auto">{{ pharmacy_data.period }}</span>
+            </h5>
+        </div>
+
+        {% if period_type == 'month' %}
+        <!-- Табель за месяц -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th rowspan="2" style="min-width: 180px;">Сотрудник</th>
+                        <th colspan="{{ days_in_month|length }}" class="text-center">Числа месяца</th>
+                        <th rowspan="2" style="width: 70px;">Рабочих</th>
+                        <th rowspan="2" style="width: 70px;">Заполнено</th>
+                        <th rowspan="2" style="width: 70px;">%</th>
+                    </tr>
+                    <tr>
+                        {% for day in days_in_month %}
+                        {% if day in working_days_set %}
+                        <th class="text-center" title="Рабочий день" style="width: 25px; font-size: 11px;">
+                            {{ day }}
+                        </th>
+                        {% else %}
+                        <th class="text-center non-working-day" title="Выходной" style="width: 25px; font-size: 11px;">
+                            {{ day }}
+                        </th>
+                        {% endif %}
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee_data in pharmacy_data.employees %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-placeholder me-2">
+                                    <i class="fas fa-user-circle text-secondary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold" style="font-size: 13px;">{{ employee_data.employee.full_name }}</div>
+                                    {% if employee_data.employee.is_manager %}
+                                    <small class="badge bg-warning text-dark">
+                                        <i class="fas fa-crown me-1"></i>Заведующий
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        
+                        {% for day_status in employee_data.daily_status %}
+                        <td class="text-center {% if not day_status.is_working %}non-working-day{% endif %}" style="font-size: 11px;">
+                            {% if day_status.is_working %}
+                                {% if day_status.status == 'full' %}
+                                    <span class="badge bg-success" title="Полный день">✓</span>
+                                {% elif day_status.status == 'half' %}
+                                    <span class="badge bg-warning text-dark" title="Полдня">½</span>
+                                {% elif day_status.status == 'vacation' %}
+                                    <span class="badge bg-info" title="Отпуск">О</span>
+                                {% elif day_status.status == 'sick' %}
+                                    <span class="badge bg-danger" title="Больничный">Б</span>
+                                {% else %}
+                                    <span class="text-muted" title="Не указано">-</span>
+                                {% endif %}
+                            {% else %}
+                                {% if day_status.is_weekend %}
+                                    <span class="badge bg-secondary" title="Выходной">В</span>
+                                {% else %}
+                                    <span class="badge bg-info" title="Праздник">П</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.total_working_days }}
+                        </td>
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.filled_working_days }}
+                        </td>
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.attendance_percentage|floatformat:0 }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Табель за год (для каждого месяца) -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th rowspan="2" style="min-width: 180px;">Сотрудник</th>
+                        <th colspan="{{ pharmacy_data.days_in_month|length }}" class="text-center">Числа месяца</th>
+                        <th rowspan="2" style="width: 70px;">Рабочих</th>
+                        <th rowspan="2" style="width: 70px;">Заполнено</th>
+                        <th rowspan="2" style="width: 70px;">%</th>
+                    </tr>
+                    <tr>
+                        {% for day in pharmacy_data.days_in_month %}
+                        {% if day in pharmacy_data.working_days_set %}
+                        <th class="text-center" title="Рабочий день" style="width: 25px; font-size: 11px;">
+                            {{ day }}
+                        </th>
+                        {% else %}
+                        <th class="text-center non-working-day" title="Выходной" style="width: 25px; font-size: 11px;">
+                            {{ day }}
+                        </th>
+                        {% endif %}
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee_data in pharmacy_data.employees %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-placeholder me-2">
+                                    <i class="fas fa-user-circle text-secondary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold" style="font-size: 13px;">{{ employee_data.employee.full_name }}</div>
+                                    {% if employee_data.employee.is_manager %}
+                                    <small class="badge bg-warning text-dark">
+                                        <i class="fas fa-crown me-1"></i>Заведующий
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        
+                        {% for day_status in employee_data.daily_status %}
+                        <td class="text-center {% if not day_status.is_working %}non-working-day{% endif %}" style="font-size: 11px;">
+                            {% if day_status.is_working %}
+                                {% if day_status.status == 'full' %}
+                                    <span class="badge bg-success" title="Полный день">✓</span>
+                                {% elif day_status.status == 'half' %}
+                                    <span class="badge bg-warning text-dark" title="Полдня">½</span>
+                                {% elif day_status.status == 'vacation' %}
+                                    <span class="badge bg-info" title="Отпуск">О</span>
+                                {% elif day_status.status == 'sick' %}
+                                    <span class="badge bg-danger" title="Больничный">Б</span>
+                                {% else %}
+                                    <span class="text-muted" title="Не указано">-</span>
+                                {% endif %}
+                            {% else %}
+                                {% if day_status.is_weekend %}
+                                    <span class="badge bg-secondary" title="Выходной">В</span>
+                                {% else %}
+                                    <span class="badge bg-info" title="Праздник">П</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.total_working_days }}
+                        </td>
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.filled_working_days }}
+                        </td>
+                        <td class="text-center fw-bold" style="font-size: 12px;">
+                            {{ employee_data.attendance_percentage|floatformat:0 }}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+<div class="text-center text-muted py-5">
+    <i class="fas fa-info-circle fa-3x mb-3"></i>
+    <h5>Нет данных для отображения</h5>
+    <p>Выберите другую аптеку или период</p>
+</div>
+{% endif %}
